@@ -1,0 +1,5 @@
+name: "hanzi_stroke_courseware"
+title: "Hanzi Stroke Courseware"
+description: "Builds Chinese character courseware with stroke-order animation (interactive single-file HTML and PPTX) from a list of characters, for Wentao Chinese lessons."
+category: "Work and knowledge"
+include_in_prompt: true

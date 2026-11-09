@@ -1,0 +1,8 @@
+# Generated courseware outputs and work files stay out of the repo
+*.gif
+*.pptx
+lesson.html
+data/
+__pycache__/
+.venv/
+node_modules/

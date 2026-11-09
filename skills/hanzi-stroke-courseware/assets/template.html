@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>/*__TITLE__*/</title>
+<style>
+  :root{
+    --paper:#FAF6EF; --card:#FFFFFF; --ink:#263238; --sub:#6B7A80;
+    --red:#C8432B; --teal:#1F7A6D; --gold:#E3A72F; --line:#E7DFD2;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; background:var(--paper); color:var(--ink);
+    font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;}
+  header{background:var(--ink); color:#fff; padding:14px 20px;
+    display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;}
+  header .brand{font-size:20px; font-weight:700; letter-spacing:1px;}
+  header .brand small{font-weight:400; color:#B9C6CA; font-size:13px; margin-left:8px; letter-spacing:0;}
+  header .tag{font-size:12.5px; color:#E8D9B0; border:1px solid #57686E; padding:4px 10px; border-radius:999px;}
+  main{max-width:1060px; margin:0 auto; padding:18px 16px 30px;}
+  .chips{display:flex; flex-wrap:wrap; gap:8px; margin:4px 0 16px;}
+  .chip{border:1.5px solid var(--line); background:var(--card); border-radius:12px;
+    padding:6px 0 4px; width:64px; text-align:center; cursor:pointer; transition:.15s;}
+  .chip .c{font-size:24px; line-height:1.15; font-family:"Kaiti SC","STKaiti","KaiTi",serif;}
+  .chip .p{font-size:11px; color:var(--sub);}
+  .chip:hover{border-color:var(--gold);}
+  .chip.active{border-color:var(--red); background:#FDF0EC; box-shadow:0 2px 8px rgba(200,67,43,.15);}
+  .chip.active .p{color:var(--red);}
+  .layout{display:grid; grid-template-columns:minmax(0,1fr) 330px; gap:16px; align-items:start;}
+  @media (max-width:860px){ .layout{grid-template-columns:1fr;} }
+  .card{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px;}
+  .stage-head{display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; margin-bottom:12px;}
+  .stage-head .big{font-size:34px; font-family:"Kaiti SC","STKaiti","KaiTi",serif; line-height:1;}
+  .stage-head .py{font-size:19px; color:var(--red); font-weight:600;}
+  .stage-head .mean{font-size:14.5px; color:var(--sub);}
+  .stage-head .strokes{margin-left:auto; font-size:13px; color:var(--sub); background:var(--paper);
+    border:1px solid var(--line); border-radius:999px; padding:3px 10px;}
+  .gridwrap{position:relative; width:min(360px,84vw); aspect-ratio:1; margin:2px auto 6px;
+    border:2px solid #B9A98F; border-radius:6px; background:#FFFDF8;}
+  .gridwrap svg.bg{position:absolute; inset:0; width:100%; height:100%;}
+  #writer{position:absolute; inset:0; touch-action:none; cursor:crosshair;}
+  .controls{display:flex; flex-wrap:wrap; gap:9px; justify-content:center; margin-top:12px;}
+  button.act{border:none; border-radius:999px; padding:11px 20px; font-size:15.5px; font-weight:600;
+    cursor:pointer; transition:.15s; font-family:inherit;}
+  button.act.primary{background:var(--red); color:#fff;}
+  button.act.primary:hover{background:#A8361F;}
+  button.act.teal{background:var(--teal); color:#fff;}
+  button.act.teal:hover{background:#166355;}
+  button.act.ghost{background:#fff; color:var(--ink); border:1.5px solid var(--line);}
+  button.act.ghost:hover{border-color:var(--gold);}
+  button.act.on{border-color:var(--red); color:var(--red); background:#FDF0EC;}
+  .status{min-height:26px; text-align:center; font-size:15.5px; margin-top:13px; color:var(--ink);}
+  .status .good{color:var(--teal); font-weight:700;}
+  .status .bad{color:var(--red); font-weight:700;}
+  .hintline{text-align:center; font-size:12.5px; color:var(--sub); margin-top:4px;}
+  .side h2, .game h2{font-size:17px; margin:0 0 10px;}
+  .side ol{margin:0; padding-left:20px; font-size:14px; line-height:1.85; color:#3D4A4F;}
+  .side .note{margin-top:12px; font-size:12.5px; color:var(--sub); line-height:1.7;
+    border-top:1px dashed var(--line); padding-top:10px;}
+  .game{margin-top:16px;}
+  .game-head{display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
+  .game-head .score{font-size:13.5px; color:var(--sub);}
+  .game-head button{margin-left:auto;}
+  .board{display:grid; grid-template-columns:repeat(4,1fr); gap:9px; margin-top:13px;}
+  .gcard{position:relative; aspect-ratio:1.18; cursor:pointer; perspective:600px; background:none; border:none; padding:0;}
+  .gcard .inner{position:absolute; inset:0; transform-style:preserve-3d; transition:transform .45s;}
+  .gcard.flip .inner{transform:rotateY(180deg);}
+  .gcard .face{position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    border-radius:12px; backface-visibility:hidden; -webkit-backface-visibility:hidden;
+    font-size:clamp(17px,4.6vw,25px); font-weight:700;}
+  .gcard .front{background:var(--ink); color:#E8D9B0; font-size:19px;}
+  .gcard .back{background:#F3EDDF; color:var(--ink); border:1.5px solid var(--line); transform:rotateY(180deg);
+    font-family:"Kaiti SC","STKaiti","KaiTi",serif;}
+  .gcard .back.py{font-family:inherit; color:var(--teal); font-size:clamp(14px,3.8vw,20px);}
+  .gcard.done{cursor:default;}
+  .gcard.done .back{background:#E2F1EC; border-color:var(--teal);}
+  .win{display:none; margin-top:13px; background:#E2F1EC; color:#14532D; border-radius:12px;
+    padding:11px 14px; font-size:15px; text-align:center; font-weight:600;}
+  footer{max-width:1060px; margin:0 auto; padding:0 16px 26px; font-size:12px; color:var(--sub); line-height:1.8;}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">文韬中文<small>Wentao Chinese · 笔顺小课堂</small></div>
+  <div class="tag">HTML 课件样例 · 离线可用 · 投屏友好</div>
+</header>
+<main>
+  <div class="chips" id="chips"></div>
+  <div class="layout">
+    <section class="card">
+      <div class="stage-head">
+        <span class="big" id="hChar">永</span>
+        <span class="py" id="hPinyin">yǒng</span>
+        <span class="mean" id="hMean">永远 · forever</span>
+        <span class="strokes" id="hStrokes">共 5 笔</span>
+      </div>
+      <div class="gridwrap">
+        <svg class="bg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+          <line x1="50" y1="0" x2="50" y2="100" stroke="#D9CDB4" stroke-width="0.7" stroke-dasharray="3 2.4"/>
+          <line x1="0" y1="50" x2="100" y2="50" stroke="#D9CDB4" stroke-width="0.7" stroke-dasharray="3 2.4"/>
+          <line x1="0" y1="0" x2="100" y2="100" stroke="#E4DAC2" stroke-width="0.55" stroke-dasharray="3 2.6"/>
+          <line x1="100" y1="0" x2="0" y2="100" stroke="#E4DAC2" stroke-width="0.55" stroke-dasharray="3 2.6"/>
+        </svg>
+        <div id="writer"></div>
+      </div>
+      <div class="controls">
+        <button class="act primary" id="btnAnim">▶&ensp;看笔顺</button>
+        <button class="act teal" id="btnQuiz">✍&ensp;描红挑战</button>
+        <button class="act ghost" id="btnSlow">慢速：关</button>
+        <button class="act ghost" id="btnReset">重来</button>
+      </div>
+      <div class="status" id="status">点「看笔顺」，看这个字一笔一画怎么写。</div>
+      <div class="hintline">描红挑战：在米字格里用鼠标或手指按笔顺写，写错顺序会提醒你。</div>
+    </section>
+    <div>
+      <section class="card side">
+        <h2>上课这样用</h2>
+        <ol>
+          <li>先点「看笔顺」放一遍，全班跟读笔画。</li>
+          <li>点「慢速」再放一遍，看清每一笔的起落。</li>
+          <li>点「描红挑战」，请一位同学上来写，写对一笔亮一笔。</li>
+          <li>最后玩下面的翻牌配对，复习拼音。</li>
+        </ol>
+        <div class="note">换课只需换字表：12 个字的笔顺数据已经内嵌在这个文件里，断网也能用。以后做整课课件，套这个模板批量生成即可。</div>
+      </section>
+      <section class="card game">
+        <div class="game-head">
+          <h2 style="margin:0;">小游戏 · 翻牌配对</h2>
+          <span class="score" id="score">已配对 0 / 6 · 步数 0</span>
+          <button class="act ghost" id="btnShuffle" style="padding:7px 14px; font-size:13.5px;">重新洗牌</button>
+        </div>
+        <div class="board" id="board"></div>
+        <div class="win" id="win">🎉 全部配对成功！</div>
+      </section>
+    </div>
+  </div>
+</main>
+<footer>
+  笔顺数据：Hanzi Writer（MIT 开源）/ Make Me a Hanzi · 本页为格式样例，排版、动画、描红与小游戏均为真实可用功能，不是效果图。
+</footer>
+
+<script>/*__LIB__*/</script>
+<script>
+var CHAR_DATA = /*__DATA__*/;
+var WORDS = /*__WORDS__*/;
+var GAME_CHARS = /*__GAME__*/;
+
+var cur = WORDS[0], slow = false, writer = null, mode = 'idle';
+var statusEl = document.getElementById('status');
+
+function setStatus(html){ statusEl.innerHTML = html; }
+
+function makeWriter(){
+  var size = document.getElementById('writer').clientWidth || 360;
+  writer = HanziWriter.create('writer', cur.ch, {
+    width: size, height: size, padding: 18,
+    showOutline: true, showCharacter: false,
+    strokeColor: '#263238', outlineColor: '#D8CFBB', radicalColor: '#C8432B',
+    drawingColor: '#1F7A6D', drawingWidth: 22,
+    strokeAnimationSpeed: slow ? 0.55 : 1.1,
+    delayBetweenStrokes: slow ? 650 : 320,
+    delayBetweenLoops: 1200,
+    charDataLoader: function(ch, onComplete){
+      onComplete(JSON.parse(JSON.stringify(CHAR_DATA[ch])));
+    },
+    onLoadCharDataError: function(){ setStatus('<span class="bad">这个字的笔顺数据没加载出来。</span>'); }
+  });
+}
+
+function selectChar(w){
+  cur = w; mode = 'idle';
+  document.getElementById('hChar').textContent = w.ch;
+  document.getElementById('hPinyin').textContent = w.py;
+  document.getElementById('hMean').textContent = w.mean;
+  document.getElementById('hStrokes').textContent = '共 ' + CHAR_DATA[w.ch].strokes.length + ' 笔';
+  var chips = document.querySelectorAll('.chip');
+  for (var i=0;i<chips.length;i++){ chips[i].classList.toggle('active', chips[i].dataset.ch === w.ch); }
+  document.getElementById('writer').innerHTML = '';
+  makeWriter();
+  setStatus('点「看笔顺」，看「' + w.ch + '」一笔一画怎么写。');
+}
+
+var chipsEl = document.getElementById('chips');
+WORDS.forEach(function(w){
+  var d = document.createElement('div');
+  d.className = 'chip'; d.dataset.ch = w.ch;
+  d.innerHTML = '<div class="c"></div><div class="p"></div>';
+  d.querySelector('.c').textContent = w.ch;
+  d.querySelector('.p').textContent = w.py;
+  d.addEventListener('click', function(){ selectChar(w); });
+  chipsEl.appendChild(d);
+});
+
+document.getElementById('btnAnim').addEventListener('click', function(){
+  mode = 'anim';
+  writer.cancelQuiz();
+  writer.hideCharacter({immediate:true});
+  setStatus('看好啦，一共 ' + CHAR_DATA[cur.ch].strokes.length + ' 笔，注意每一笔的顺序。');
+  writer.animateCharacter({ onComplete: function(){
+    if (mode === 'anim') setStatus('<span class="good">放完了！</span> 点「描红挑战」，自己动手写一遍。');
+  }});
+});
+
+document.getElementById('btnQuiz').addEventListener('click', function(){
+  mode = 'quiz';
+  var total = CHAR_DATA[cur.ch].strokes.length;
+  setStatus('描红挑战开始：在格子里写第 <b>1</b> / ' + total + ' 笔。');
+  writer.quiz({
+    showOutline: true, showHintAfterMisses: 3, leniency: 1,
+    highlightOnComplete: true, markStrokeCorrectAfterMisses: false,
+    onCorrectStroke: function(d){
+      if (d.strokesRemaining > 0){
+        setStatus('<span class="good">写对啦！</span> 下一笔：第 <b>' + (d.strokeNum + 2) + '</b> / ' + total + ' 笔。');
+      }
+    },
+    onMistake: function(d){
+      setStatus('<span class="bad">这一笔顺序不对，再试试。</span>（已经写到第 ' + (d.strokeNum + 1) + ' / ' + total + ' 笔）');
+    },
+    onComplete: function(d){
+      mode = 'idle';
+      if (d.totalMistakes === 0){
+        setStatus('🏆 <span class="good">太棒了！一笔没错，全部写对！</span>');
+      } else {
+        setStatus('🎉 <span class="good">写完了！</span> 一共错了 ' + d.totalMistakes + ' 次，再挑战一次争取零失误。');
+      }
+    }
+  });
+});
+
+document.getElementById('btnSlow').addEventListener('click', function(){
+  slow = !slow;
+  this.textContent = slow ? '慢速：开' : '慢速：关';
+  this.classList.toggle('on', slow);
+  var wasMode = mode; mode = 'idle';
+  document.getElementById('writer').innerHTML = '';
+  makeWriter();
+  setStatus(slow ? '已切换慢速，点「看笔顺」慢慢看每一笔。' : '已切换正常速度。');
+});
+
+document.getElementById('btnReset').addEventListener('click', function(){ selectChar(cur); });
+
+/* ---------- 翻牌配对游戏 ---------- */
+var board = document.getElementById('board');
+var firstCard = null, lockBoard = false, matched = 0, moves = 0;
+
+function wordOf(ch){ for (var i=0;i<WORDS.length;i++){ if (WORDS[i].ch === ch) return WORDS[i]; } return null; }
+function updateScore(){
+  document.getElementById('score').textContent = '已配对 ' + matched + ' / ' + GAME_CHARS.length + ' · 步数 ' + moves;
+}
+function buildGame(){
+  matched = 0; moves = 0; firstCard = null; lockBoard = false;
+  document.getElementById('win').style.display = 'none';
+  updateScore();
+  var cards = [];
+  GAME_CHARS.forEach(function(ch){
+    cards.push({key: ch, label: ch, kind: 'zi'});
+    cards.push({key: ch, label: wordOf(ch).py, kind: 'py'});
+  });
+  for (var i = cards.length - 1; i > 0; i--){
+    var j = Math.floor(Math.random() * (i + 1));
+    var t = cards[i]; cards[i] = cards[j]; cards[j] = t;
+  }
+  board.innerHTML = '';
+  cards.forEach(function(c){
+    var b = document.createElement('button');
+    b.className = 'gcard'; b.dataset.key = c.key;
+    var backCls = c.kind === 'py' ? 'face back py' : 'face back';
+    b.innerHTML = '<span class="inner"><span class="face front">文</span><span class="' + backCls + '"></span></span>';
+    b.querySelector('.back').textContent = c.label;
+    b.addEventListener('click', function(){ flipCard(b); });
+    board.appendChild(b);
+  });
+}
+function flipCard(b){
+  if (lockBoard || b.classList.contains('flip')) return;
+  b.classList.add('flip');
+  if (!firstCard){ firstCard = b; return; }
+  moves++; 
+  var a = firstCard; firstCard = null;
+  if (a.dataset.key === b.dataset.key){
+    a.classList.add('done'); b.classList.add('done');
+    matched++; updateScore();
+    if (matched === GAME_CHARS.length){
+      var win = document.getElementById('win');
+      win.textContent = '🎉 全部配对成功！一共用了 ' + moves + ' 步。';
+      win.style.display = 'block';
+    }
+  } else {
+    updateScore();
+    lockBoard = true;
+    setTimeout(function(){
+      a.classList.remove('flip'); b.classList.remove('flip');
+      lockBoard = false;
+    }, 750);
+  }
+}
+document.getElementById('btnShuffle').addEventListener('click', buildGame);
+
+/* ---------- 启动 ---------- */
+selectChar(WORDS[0]);
+buildGame();
+window.addEventListener('resize', function(){
+  clearTimeout(window.__rz);
+  window.__rz = setTimeout(function(){ selectChar(cur); }, 250);
+});
+</script>
+</body>
+</html>
