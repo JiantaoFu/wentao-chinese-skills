@@ -3,3 +3,6 @@ uvicorn[standard]>=0.29
 python-pptx>=0.6.21
 Pillow>=10.0
 itsdangerous>=2.1
+# MCP server SDK, pinned to the v1 line: v2 renamed FastMCP to
+# MCPServer and changed the API, app/mcp_server.py targets v1.
+mcp==1.30.0

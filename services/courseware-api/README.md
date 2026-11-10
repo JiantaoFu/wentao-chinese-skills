@@ -1,7 +1,8 @@
 # Courseware API + Web App
 
-One FastAPI service that is both the teacher facing web app
-（文韬中文 · 课件工坊） and the generation API behind it. It runs the four
+One FastAPI service that is the teacher facing web app
+（文韬中文 · 课件工坊）, the generation API behind it, and an MCP
+server for AI clients (see "MCP endpoint" below). It runs the four
 `hanzi-stroke-courseware` skill scripts (`fetch_data.py`,
 `build_html.py`, `gen_gifs.py`, `build_pptx.py`) as subprocesses and
 serves the finished lesson files. The skill scripts are located
@@ -51,6 +52,63 @@ Jobs run in background threads, at most 2 at a time (extra jobs queue).
 Job files live in the system temp directory under `courseware-jobs/`
 and jobs older than 2 hours are cleaned up when a new job starts. Job
 state is kept in memory, so a service restart forgets running jobs.
+
+## MCP endpoint
+
+AI clients that speak the
+[Model Context Protocol](https://modelcontextprotocol.io) (Claude,
+ChatGPT, Cursor, and other MCP capable agents) can generate
+courseware directly, without going through the web page or REST
+calls. The endpoint is Streamable HTTP on the same service:
+
+```
+POST {BASE_URL}/mcp
+```
+
+It exposes exactly two tools, mirroring the REST flow:
+
+- `generate_courseware` — arguments: `words` (required, the same
+  `[{ch, py, mean}]` list as `POST /generate`), `title` (optional),
+  `game_chars` (optional). A lesson takes tens of seconds to a couple
+  of minutes, so the tool is asynchronous: it validates the input,
+  starts a job and returns `{job_id, status: "running", message}`
+  right away. Invalid input comes back as `status: "error"` with the
+  specific reason in `message`, so the calling AI can fix and retry.
+- `get_courseware` — argument: `job_id`. Returns `status: "running"`
+  with an elapsed time while the job works, `status: "error"` with
+  the failure reason, or `status: "done"` with `html_url` and
+  `pptx_url`: absolute download URLs (built from `BASE_URL`) pointing
+  at the normal REST file endpoints.
+
+**Auth is the API key, same as REST**: every MCP request, including
+the `initialize` handshake, must carry `X-API-Key: <key>` or
+`Authorization: Bearer <key>` equal to `COURSEWARE_API_KEY`, or it
+gets a 401. The Google web session is not accepted on this endpoint.
+The file downloads behind `html_url` / `pptx_url` need the same key
+header too (they are the REST endpoints above).
+
+Client configuration example (for MCP hosts that accept a remote
+server URL plus headers):
+
+```json
+{
+  "mcpServers": {
+    "wentao-courseware": {
+      "url": "https://wentao-courseware-api.onrender.com/mcp",
+      "headers": {
+        "X-API-Key": "replace-with-the-courseware-api-key"
+      }
+    }
+  }
+}
+```
+
+The endpoint is stateless (no server side MCP sessions), so polling
+keeps working even if the free tier instance restarted between the
+two tool calls. Implementation: `app/mcp_server.py`, built on the
+official `mcp` Python SDK (FastMCP, pinned to the v1 line in
+`requirements.txt`), reusing the same validation and job pipeline as
+REST.
 
 ## Who can call what (identities and quota)
 

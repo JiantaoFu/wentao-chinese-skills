@@ -14,8 +14,21 @@ A collection of agent skills for teaching work at Wentao Chinese. Each skill liv
 
 ## 用法
 
-1. 把某个 skill 目录拷到你的 agent 的 custom skills 目录（Muse 里是 `~/workspace/custom-skills/`）。
+1. 把某个 skill 目录拷到你的 AI 宿主的 skills 目录（见下一节的通用说明）。
 2. 按该 skill 的 `SKILL.md` 准备输入（例如一份 `words.json` 生字表），照流程运行 `scripts/` 里的脚本即可。
+
+## Use with any AI / 任何 AI 都能用
+
+这些 skill 用的是开放的 Agent Skills 格式（`SKILL.md` + 脚本），不绑任何一家 AI。三种用法：
+
+These skills use the open Agent Skills format (`SKILL.md` + scripts) and are not tied to any single AI vendor. Three ways to use them:
+
+1. **支持 Agent Skills 的宿主 / Agent Skills hosts**（Claude Code、Codex、Cursor、Gemini CLI 等）：把 `skills/` 下的 skill 目录拷进该宿主的 skills 目录即可，宿主会自动读 `SKILL.md`。
+   Copy the skill folder under `skills/` into your host's skills directory; the host picks up `SKILL.md` automatically.
+2. **不支持 skill 的 AI / Any other AI**：把 `SKILL.md` 全文当说明书发给它读，让它照着运行 `scripts/` 里的四步脚本。运行环境要求（Python、依赖、联网）写在 `SKILL.md` 里。
+   Paste the full text of `SKILL.md` as instructions and let the AI run the four scripts; runtime requirements are in `SKILL.md`.
+3. **不想装环境 / Hosted version**：用托管服务 https://wentao-courseware-api.onrender.com — 网页版用 Google 登录；REST API 与 MCP（`https://wentao-courseware-api.onrender.com/mcp`）用同一把 key。
+   Use the hosted service instead: web app with Google sign-in, plus a REST API and MCP endpoint sharing one API key.
 
 ## 数据与许可
 

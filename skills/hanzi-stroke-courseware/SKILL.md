@@ -1,3 +1,8 @@
+---
+name: hanzi-stroke-courseware
+description: Build Chinese character courseware with stroke-order animation from a teacher's list of characters (生字表): an interactive single-file HTML page (stroke-order animation, tracing quiz, character-to-pinyin matching game) and a 16:9 PPTX deck (one slide per character with an animated stroke-order GIF, tracing grids, a matching game slide and teacher speaker notes). Use when a Chinese teacher provides characters to teach, e.g. for Wentao Chinese (文韬中文) lessons.
+---
+
 # Hanzi Stroke Courseware
 
 ## What this skill does
@@ -9,6 +14,29 @@
 - Produce a 16:9 PPTX deck with one slide per character, an animated stroke-order GIF on each character slide, tracing grids, a matching game slide and speaker notes for the teacher.
 
 - Reuse the four scripts in `scripts/` for every lesson so a new lesson only needs a new words file, never new code.
+
+## Runtime requirements (any AI host)
+
+This skill follows the open Agent Skills format and runs under any compatible host (for example Claude Code, Codex, Cursor or Gemini CLI). It needs no vendor-specific tools, only:
+
+- A way to run shell commands and read and write files in a working directory.
+
+- Python 3.9 or newer. Steps 1 and 2 use only the standard library.
+
+- Network access to `cdn.jsdelivr.net`, which `fetch_data.py` uses to download the pinned hanzi-writer-data 2.0.1 stroke data.
+
+- Pillow and python-pptx for steps 3 and 4. Prefer an isolated virtual environment so you never touch the system Python:
+
+  ```sh
+  python3 -m venv .venv
+  .venv/bin/pip install Pillow python-pptx
+  ```
+
+  Then run steps 3 and 4 with `.venv/bin/python`. Any Python with both packages installed works just as well; say in the delivery which interpreter you used.
+
+- Optional, for visual quality checks only: LibreOffice (headless) to render the PPTX to images.
+
+If your host cannot run code at all, do not force it: use the hosted version instead (web app, REST API and MCP, see the repository `AGENTS.md` or root `README.md`).
 
 ## Inputs
 
@@ -30,21 +58,33 @@
 
 ## Build the courseware
 
-- Create a fresh work directory for the lesson and keep the words file, the downloaded data, the GIFs and the outputs inside it.
+In the commands below, `<skill-dir>` is the directory that contains this `SKILL.md` file, wherever your host installed or cloned it, and `<workdir>` is a fresh working directory you create for the lesson. Keep the words file, the downloaded data, the GIFs and the outputs inside `<workdir>`.
 
-- Download the stroke data by running `python3 ~/workspace/custom-skills/hanzi-stroke-courseware/scripts/fetch_data.py --words <words.json> --data-dir <workdir>/data` with `muse.exec`.
+- Step 1, download the stroke data:
 
-- Build the HTML page by running `python3 ~/workspace/custom-skills/hanzi-stroke-courseware/scripts/build_html.py --words <words.json> --data-dir <workdir>/data --out <workdir>/lesson.html` with `muse.exec`.
+  ```sh
+  python3 <skill-dir>/scripts/fetch_data.py --words <words.json> --data-dir <workdir>/data
+  ```
 
-- Generate the GIFs by running `~/workspace/hanzi-sample-src/.venv/bin/python ~/workspace/custom-skills/hanzi-stroke-courseware/scripts/gen_gifs.py --words <words.json> --data-dir <workdir>/data --out-dir <workdir>/gifs` with `muse.exec`.
+- Step 2, build the HTML page:
 
-- Build the deck by running `~/workspace/hanzi-sample-src/.venv/bin/python ~/workspace/custom-skills/hanzi-stroke-courseware/scripts/build_pptx.py --words <words.json> --data-dir <workdir>/data --gif-dir <workdir>/gifs --out <workdir>/lesson.pptx` with `muse.exec`.
+  ```sh
+  python3 <skill-dir>/scripts/build_html.py --words <words.json> --data-dir <workdir>/data --out <workdir>/lesson.html
+  ```
 
-- Run the two GIF and PPTX scripts with any Python that has Pillow and python-pptx installed when the interpreter above is unavailable, and say in the delivery which interpreter you used.
+- Step 3, generate the GIFs (needs Pillow):
+
+  ```sh
+  .venv/bin/python <skill-dir>/scripts/gen_gifs.py --words <words.json> --data-dir <workdir>/data --out-dir <workdir>/gifs
+  ```
+
+- Step 4, build the deck (needs python-pptx):
+
+  ```sh
+  .venv/bin/python <skill-dir>/scripts/build_pptx.py --words <words.json> --data-dir <workdir>/data --gif-dir <workdir>/gifs --out <workdir>/lesson.pptx
+  ```
 
 - Deliver the HTML file and the PPTX file together unless the user asked for only one format.
-
-- Adjust the script paths when you work from the GitHub repo copy, where this skill lives under `skills/hanzi-stroke-courseware/` inside the `wentao-chinese-skills` repo.
 
 ## Check before delivering
 
@@ -54,7 +94,7 @@
 
 - Count the GIF parts inside the PPTX media folder and require one GIF per word.
 
-- Render the PPTX to page images with LibreOffice headless and look at the title slide, the game slide and at least two character slides yourself before delivering.
+- When your environment can render and view images, render the PPTX to page images with LibreOffice headless and look at the title slide, the game slide and at least two character slides yourself before delivering. Skip this step when your host cannot view images, and say so in the delivery.
 
 - Fix any text overflow, misaligned grid or clipped character you spot in the render and rebuild before delivering.
 
@@ -109,9 +149,3 @@
 - [hanzi-writer-data on jsDelivr](https://cdn.jsdelivr.net/npm/hanzi-writer-data@2.0.1/) for the per character stroke JSON files that `scripts/fetch_data.py` downloads. Verify a new character exists there when a fetch fails before you blame the script.
 
 - [Hanzi Writer](https://chanind.github.io/hanzi-writer) for the library documentation and a live demo of the animation and quiz behavior the HTML page relies on.
-
-## Available connectors
-
-- Use `muse.connector_search` to find other connectors and `muse.skill_search` to find related skills.
-
-- If nothing here fits, look on the web for a maintained API or MCP server and set it up with [Custom Connectors and MCPs](/opt/muse/skills/custom-connector-setup/SKILL.md), or build a custom connector.

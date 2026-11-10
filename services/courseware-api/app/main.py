@@ -13,6 +13,9 @@ Routes:
     POST /generate                      start a generation job
     GET  /jobs/{job_id}                 job status and file links
     GET  /jobs/{job_id}/files/{name}    download lesson.html or lesson.pptx
+    POST /mcp                           MCP endpoint (Streamable HTTP) for
+                                        AI clients, same API key; the
+                                        tools live in app/mcp_server.py
 
 The heavy lifting is done by the skill scripts in
 <repo>/skills/hanzi-stroke-courseware/scripts, located relative to this
@@ -32,6 +35,7 @@ fall back to the API key identity, which keeps the original open local
 mode working for development. In production the key is always set, so
 anonymous calls get a 401 there.
 """
+import contextlib
 import datetime
 import json
 import os
@@ -71,7 +75,7 @@ ALLOWED_FILES = {
     'lesson.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
 }
 
-app = FastAPI(title='Wentao Chinese Courseware', version='0.2.0')
+app = FastAPI(title='Wentao Chinese Courseware', version='0.3.0')
 app.add_middleware(
     CORSMiddleware,
     allow_origins=['*'],
@@ -288,6 +292,29 @@ def run_job(job_id, spec):
                 _jobs[job_id]['elapsed_sec'] = round(time.time() - _jobs[job_id]['started'], 1)
 
 
+def start_job(spec, owner):
+    """Register a job for a validated spec and run it in the background.
+
+    Shared by POST /generate and the MCP tools. Returns the job_id.
+    """
+    cleanup_old_jobs()
+    job_id = uuid.uuid4().hex[:12]
+    job_dir = os.path.join(JOBS_ROOT, job_id)
+    os.makedirs(job_dir, exist_ok=True)
+    with _jobs_lock:
+        _jobs[job_id] = {'status': 'running', 'error': None, 'owner': owner,
+                         'started': time.time(), 'elapsed_sec': None}
+    threading.Thread(target=run_job, args=(job_id, spec), daemon=True).start()
+    return job_id
+
+
+def job_snapshot(job_id):
+    """A copy of the job dict, or None when the job id is unknown."""
+    with _jobs_lock:
+        job = _jobs.get(job_id)
+        return dict(job) if job is not None else None
+
+
 # ---------------------------------------------------------------- google auth
 
 def google_configured():
@@ -433,14 +460,7 @@ async def generate(request: Request):
             raise HTTPException(
                 429, f'今天的免费生成次数已经用完了（每天 {free_daily_limit()} 次），明天再来吧。')
 
-    cleanup_old_jobs()
-    job_id = uuid.uuid4().hex[:12]
-    job_dir = os.path.join(JOBS_ROOT, job_id)
-    os.makedirs(job_dir, exist_ok=True)
-    with _jobs_lock:
-        _jobs[job_id] = {'status': 'running', 'error': None, 'owner': owner,
-                         'started': time.time(), 'elapsed_sec': None}
-    threading.Thread(target=run_job, args=(job_id, spec), daemon=True).start()
+    job_id = start_job(spec, owner)
     out = {'job_id': job_id, 'status': 'running'}
     if remaining is not None:
         out['quota_remaining'] = remaining
@@ -452,9 +472,7 @@ def _authorize_job(request, job_id):
     kind, owner = resolve_identity(request)
     if kind is None:
         raise HTTPException(401, 'log in first, or send a valid X-API-Key header')
-    with _jobs_lock:
-        job = _jobs.get(job_id)
-        snapshot = dict(job) if job is not None else None
+    snapshot = job_snapshot(job_id)
     if snapshot is None:
         raise HTTPException(404, f'unknown job {job_id}')
     if kind == 'user' and snapshot.get('owner') != owner:
@@ -500,3 +518,56 @@ def job_file(request: Request, job_id: str, name: str):
     if not os.path.isfile(path):
         raise HTTPException(404, 'file not found, the job may still be running or unknown')
     return FileResponse(path, media_type=ALLOWED_FILES[name], filename=name)
+
+
+# ---------------------------------------------------------------- MCP
+
+# Optional MCP endpoint at /mcp (see app/mcp_server.py). It is a thin
+# layer over the same job pipeline, guarded by the API key. If the mcp
+# package is missing or broken the rest of the service must still run,
+# so a failure here only disables the endpoint and logs a warning.
+try:
+    try:
+        from .mcp_server import build_mcp
+    except ImportError:  # running as a loose module, not as the app package
+        from mcp_server import build_mcp
+
+    _mcp_session_manager, _mcp_asgi_app = build_mcp(
+        start_job=start_job,
+        validate_payload=validate_payload,
+        job_snapshot=job_snapshot)
+    app.mount('/mcp', _mcp_asgi_app)
+
+    # Mount('/mcp') only matches paths below the prefix; a request to
+    # exactly /mcp gets a 307 redirect to /mcp/ from the router, which
+    # POST based MCP clients are not guaranteed to follow (and it
+    # would bypass the API key check on the first hop). Rewrite the
+    # path in an outer middleware so /mcp is served directly.
+    class _McpSlashMiddleware:
+        def __init__(self, asgi_app):
+            self.asgi_app = asgi_app
+
+        async def __call__(self, scope, receive, send):
+            if scope.get('type') == 'http' and scope.get('path') == '/mcp':
+                scope = dict(scope)
+                scope['path'] = '/mcp/'
+                scope['raw_path'] = b'/mcp/'
+            await self.asgi_app(scope, receive, send)
+
+    app.add_middleware(_McpSlashMiddleware)
+
+    # A mounted sub-application never sees the lifespan scope, so the
+    # MCP session manager has to run inside the host app's lifespan.
+    # Wrap whatever lifespan FastAPI already has (the default one) so
+    # nothing else changes.
+    _host_lifespan = app.router.lifespan_context
+
+    @contextlib.asynccontextmanager
+    async def _lifespan(host_app):
+        async with _host_lifespan(host_app):
+            async with _mcp_session_manager.run():
+                yield
+
+    app.router.lifespan_context = _lifespan
+except Exception as _mcp_err:
+    print(f'warning: MCP endpoint disabled: {_mcp_err}', file=sys.stderr)
